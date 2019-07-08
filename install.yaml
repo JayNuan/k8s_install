@@ -1,0 +1,50 @@
+---
+- hosts: k8s
+  remote_user: root
+  tasks:
+    - name: 1.Stop and disable firewalld
+      service:
+        name: firewalld
+        state: stopped
+        enabled: no
+    - name: 2.selinux stop
+      shell: setenforce 0
+    - name: 3.disable Selinux
+      replace:
+        path: /etc/selinux/config
+        regexp: 'SELINUX=enforcing'
+        replace: 'SELINUX=disabled'
+    - name: 4.Install package for K8s
+      yum:
+        name: "{{ item }}"
+        state: latest
+      with_items:
+        - etcd
+        - docker
+        - kubernetes
+    - name: 5.Modify docker configure file
+      replace:
+        path: /etc/sysconfig/docker
+        regexp: OPTIONS='--selinux-enabled --log-driver=journald --signature-verification=false'
+        replace: OPTIONS='--selinux-enabled=false --log-driver=journald --insecure-registry gcr.io --signature-verification=false'
+    - name: 6.Modify kube-apiserver configure file
+      replace:
+        path: /etc/kubernetes/apiserver
+        regexp: 'KUBE_ADMISSION_CONTROL="--admission-control=NamespaceLifecycle,NamespaceExists,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota"'
+        replace: 'KUBE_ADMISSION_CONTROL="--admission-control=NamespaceLifecycle,NamespaceExists,LimitRanger,SecurityContextDeny,ResourceQuota"'
+    - name: 7.Start and enable k8s Services
+      service:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      with_items:
+        - docker
+        - etcd
+        - kube-apiserver
+        - kube-controller-manager
+        - kube-scheduler
+        - kubelet
+        - kube-proxy
+    - name: 8.Load the Init container
+      command: docker load -i /root/Install_k8s_all_in_one/pod-infrastructure.tar
+    - shell: echo `pwd`

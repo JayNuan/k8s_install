@@ -1,0 +1,2 @@
+[k8s]
+kubernetes ansible_ssh_host=127.0.0.1 ansible_ssh_user=root ansible_ssh_password=li123.. ansible_ssh_port=22
